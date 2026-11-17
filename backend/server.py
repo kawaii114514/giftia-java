@@ -30,12 +30,13 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 # ruff: noqa: E402
 from llm_config import get_llm_client
-from model_config import CHAT_MODEL, CHAT_BASE_URL, get_chat_api_key, detect_provider, PROVIDER_KEY_MAP
+from model_config import CHAT_MODEL, CHAT_BASE_URL, get_chat_api_key, get_embedding_api_key, detect_provider, PROVIDER_KEY_MAP
 from memory_manager import MemoryManager
 from working_memory import WorkingMemoryStore
-from emotion_graph import build_emotion_graph, run_emotion_workflow_streaming, load_prompt_config, save_prompt_config, get_dialogue_prompt, DIALOGUE_AGENT_PROMPT
+from emotion_graph import build_emotion_graph, run_emotion_workflow_streaming, load_prompt_config, save_prompt_config
 from file_processor import is_multimodal_model
 from conversation_store import ConversationStore
+from character_config import CharacterUpdate, get_character_config, update_character_config, get_legacy_prompt_config
 
 # ================================================================
 # 配置
@@ -134,8 +135,9 @@ def _validate_env_on_startup():
         logger.error(f"未找到 Chat API Key。请在 .env 中设置 {key_name}=your_api_key（当前模型: {CHAT_MODEL}，提供商: {provider}）")
         sys.exit(1)
 
-    embedding_key = os.environ.get("ZHIPU_API_KEY", "") or os.environ.get("ZhipuAI_API_KEY", "")
-    if not embedding_key:
+    try:
+        get_embedding_api_key()
+    except ValueError:
         logger.warning("未配置 Embedding API Key，语义检索将降级为关键词匹配")
 
     raw_origins = os.environ.get("CORS_ORIGINS", "")
@@ -715,24 +717,25 @@ async def get_model_presets():
 
 @app.get("/api/config/prompt", dependencies=[Depends(verify_access_key)])
 async def get_prompt_config():
-    current = get_dialogue_prompt()
-    is_custom = current != DIALOGUE_AGENT_PROMPT
-    return {
-        "prompt": current,
-        "default_prompt": DIALOGUE_AGENT_PROMPT,
-        "is_custom": is_custom,
-    }
+    return get_legacy_prompt_config()
 
 @app.put("/api/config/prompt", dependencies=[Depends(verify_admin_key)])
 async def update_prompt_config(req: PromptUpdateRequest):
     save_prompt_config(req.prompt)
-    current = get_dialogue_prompt()
-    is_custom = current != DIALOGUE_AGENT_PROMPT
-    return {
-        "ok": True,
-        "prompt": current,
-        "is_custom": is_custom,
-    }
+    return {"ok": True, **get_legacy_prompt_config()}
+
+
+@app.get("/api/characters/{user_id}", dependencies=[Depends(verify_access_key)])
+async def get_user_persona(user_id: str):
+    return get_character_config(user_id)
+
+
+@app.put("/api/characters/{user_id}", dependencies=[Depends(verify_access_key)])
+async def update_user_persona(user_id: str, req: CharacterUpdate):
+    try:
+        return update_character_config(user_id, req)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 # ================================================================
 # 健康检查

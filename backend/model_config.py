@@ -78,9 +78,9 @@ def get_model_profile(model_name: str) -> dict:
 # 嵌入模型
 # ================================================================
 
-EMBED_MODEL = "embedding-3"
-EMBED_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/embeddings"
-EMBED_PROVIDER = "zhipu"
+EMBED_MODEL = "BAAI/bge-m3"
+EMBED_BASE_URL = "https://api.siliconflow.cn/v1/embeddings"
+EMBED_PROVIDER = "siliconflow"
 
 # ================================================================
 # Provider → API Key 环境变量名映射
@@ -141,3 +141,9 @@ def resolve_api_key(provider: str) -> str:
 def get_chat_api_key() -> str:
     provider = detect_provider()
     return resolve_api_key(provider)
+
+
+def get_embedding_api_key() -> str:
+    """优先使用独立的向量密钥，否则使用向量提供商的密钥。"""
+    api_key = os.environ.get("EMBEDDING_API_KEY", "")
+    return api_key or resolve_api_key(EMBED_PROVIDER)

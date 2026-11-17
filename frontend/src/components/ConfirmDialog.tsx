@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useDialogFocus } from './useDialogFocus'
 import './ModelDialog.css'
 
 interface Props {
@@ -20,17 +20,19 @@ export default function ConfirmDialog({
   cancelText = '取消',
   danger = true,
 }: Props) {
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel()
-    }
-    window.addEventListener('keydown', handleEsc)
-    return () => window.removeEventListener('keydown', handleEsc)
-  }, [onCancel])
-
+  const dialogRef = useDialogFocus(onCancel)
   return (
     <div className="dialog-overlay" onClick={onCancel}>
-      <div className="dialog-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+      <div
+        className="dialog-content"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: 400 }}
+      >
         <h3 className="dialog-title">{title}</h3>
         <p className="dialog-message">{message}</p>
         <div className="dialog-actions">

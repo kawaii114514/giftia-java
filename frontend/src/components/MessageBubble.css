@@ -2,18 +2,19 @@
   display: flex;
   align-items: flex-end;
   gap: 10px;
-  margin: 6px 0;
-  padding: 0 32px;
+  margin: 9px 0;
+  padding: 0 38px;
+  max-width: 980px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }
-
 .bubble-row--user {
   justify-content: flex-end;
 }
-
 .bubble-row--assistant {
   justify-content: flex-start;
 }
-
 .bubble-avatar {
   width: 34px;
   height: 34px;
@@ -21,119 +22,168 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
+  font: 12px var(--font-mono);
   flex-shrink: 0;
 }
-
 .bubble-avatar--assistant {
-  background: linear-gradient(135deg, #E8A87C, #D4785C);
-  color: #fff;
+  background: var(--color-cyan);
+  color: #07131b;
+  box-shadow: 0 0 18px rgba(125, 225, 210, 0.22);
 }
-
 .bubble-avatar--user {
-  background: linear-gradient(135deg, #B8C9A8, #8FAF7E);
-  color: #fff;
+  background: var(--color-accent);
+  color: #07131b;
 }
-
 .bubble {
-  max-width: 68%;
-  padding: 12px 18px;
-  border-radius: var(--radius-lg);
-  font-size: 15px;
-  line-height: 1.4;
+  max-width: min(70%, 700px);
+  padding: 12px 17px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.65;
   word-wrap: break-word;
-  word-break: break-word;
   position: relative;
-  animation: bubbleIn 0.4s var(--ease-bounce);
-  transition: box-shadow 0.3s var(--ease-out);
+  animation: bubbleIn 0.35s var(--ease-spring);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
-
 @keyframes bubbleIn {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.94);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: none;
   }
 }
-
 .bubble--user {
+  color: #edf7f4;
   background: var(--color-user-bubble);
-  color: #2D2420;
-  border-bottom-right-radius: 6px;
+  border: 1px solid rgba(125, 225, 210, 0.13);
+  border-bottom-right-radius: 4px;
 }
-
 .bubble--assistant {
-  background: var(--color-assistant-bubble);
   color: var(--color-text);
-  border: 1px solid var(--color-border);
+  background: rgba(18, 43, 57, 0.9);
+  border: 1px solid rgba(125, 225, 210, 0.12);
   box-shadow: var(--shadow-xs);
-  border-bottom-left-radius: 6px;
+  border-bottom-left-radius: 4px;
 }
-
 .bubble p {
   margin: 0;
-  line-height: 1.4;
 }
-
 .bubble p + p {
-  margin-top: 4px;
+  margin-top: 6px;
 }
-
+.bubble strong {
+  color: #fff;
+}
 .bubble code {
-  background: rgba(0, 0, 0, 0.05);
+  color: var(--color-cyan);
+  background: rgba(125, 225, 210, 0.1);
   padding: 2px 6px;
   border-radius: 4px;
-  font-size: 13px;
-  font-family: var(--font-mono);
+  font: 12px var(--font-mono);
 }
-
 .bubble pre {
-  background: #F5F0EB;
-  padding: 12px 16px;
-  border-radius: var(--radius-sm);
+  background: #07131c;
+  padding: 12px 14px;
+  border-radius: 8px;
   overflow-x: auto;
   margin: 8px 0;
 }
-
 .bubble pre code {
   background: none;
   padding: 0;
 }
-
-.bubble ul, .bubble ol {
+.bubble ul,
+.bubble ol {
   padding-left: 20px;
   margin: 6px 0;
 }
-
-.bubble li {
-  margin: 2px 0;
-}
-
-.bubble strong {
-  font-weight: 700;
-}
-
 .bubble-image {
   max-width: 240px;
   max-height: 240px;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   display: block;
-  cursor: pointer;
-  transition: opacity 0.2s;
 }
-
-.bubble-image:hover {
-  opacity: 0.9;
-}
-
 .bubble--has-image {
   padding: 4px;
 }
-
 .bubble--has-image .bubble-text {
   padding: 8px 14px 4px;
+}
+.bubble pre,
+.bubble table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.bubble table {
+  display: block;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+.bubble th,
+.bubble td {
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+}
+.bubble a {
+  color: var(--color-cyan);
+  text-underline-offset: 3px;
+}
+@media (max-width: 768px) {
+  .bubble-row {
+    padding: 0 16px;
+    gap: 8px;
+  }
+}
+@media (max-width: 768px) {
+  .bubble {
+    max-width: calc(100% - 50px);
+    font-size: 14px;
+    padding: 11px 14px;
+  }
+}
+@media (max-width: 768px) {
+  .bubble-avatar {
+    width: 28px;
+    height: 28px;
+  }
+}
+.bubble-avatar--assistant {
+  color: #47613e;
+  background: #e0e8d3;
+  box-shadow: none;
+}
+.bubble-avatar--user {
+  color: white;
+  background: #7d906e;
+}
+.bubble--assistant {
+  background: #fffef9;
+  border-color: #dfe5d4;
+  box-shadow: none;
+}
+.bubble--user {
+  border-color: #45654c;
+}
+.bubble strong {
+  color: inherit;
+}
+.bubble pre {
+  background: #e8eddf;
+  color: #35492c;
+}
+.bubble--user code {
+  color: #eef5e5;
+  background: #ffffff16;
+}
+.bubble--user pre {
+  background: #2f4b36;
+  color: #f3f5ed;
+}
+.bubble--user a {
+  color: #e1edce;
 }

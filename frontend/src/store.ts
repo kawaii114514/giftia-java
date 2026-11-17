@@ -1,8 +1,23 @@
 import { create } from 'zustand'
-import type { Conversation, UserInfo, Message, MemoryStats, ModelConfig, PromptConfig } from './types'
+import type {
+  Conversation,
+  UserInfo,
+  Message,
+  MemoryStats,
+  ModelConfig,
+  PromptConfig,
+  CharacterConfig,
+  CharacterUpdate,
+} from './types'
 import { api, setStoredAccessKey, setStoredAdminKey } from './api'
 
 let _msgIdCounter = 0
+let _conversationListVersion = 0
+let _conversationLoadVersion = 0
+let _memoryStatsVersion = 0
+let _userSwitchVersion = 0
+let _characterLoadVersion = 0
+let _characterSaveRequest: Promise<CharacterConfig> | null = null
 function nextMsgId(): string {
   return `msg_${Date.now()}_${++_msgIdCounter}`
 }
@@ -16,6 +31,8 @@ interface AppState {
   memoryStats: MemoryStats | null
   modelConfig: ModelConfig | null
   promptConfig: PromptConfig | null
+  characterConfig: CharacterConfig | null
+  isCharacterSaving: boolean
   isLoading: boolean
   searchQuery: string
   statusText: string
@@ -49,6 +66,8 @@ interface AppState {
 
   loadPromptConfig: () => Promise<void>
   updatePromptConfig: (prompt: string) => Promise<void>
+  loadCharacterConfig: () => Promise<void>
+  updateCharacterConfig: (config: CharacterUpdate) => Promise<void>
   checkAuth: () => Promise<void>
   setAuthKeys: (accessKey: string, adminKey: string) => void
 
@@ -65,6 +84,8 @@ export const useStore = create<AppState>((set, get) => ({
   memoryStats: null,
   modelConfig: null,
   promptConfig: null,
+  characterConfig: null,
+  isCharacterSaving: false,
   isLoading: false,
   searchQuery: '',
   statusText: '',
@@ -73,32 +94,50 @@ export const useStore = create<AppState>((set, get) => ({
   error: null,
   lastFailedMessage: null,
 
-  setUserId: (id) => set({ userId: id }),
+  setUserId: (id) => {
+    ++_userSwitchVersion
+    ++_characterLoadVersion
+    set({ userId: id, characterConfig: null })
+  },
   setSearchQuery: (q) => set({ searchQuery: q }),
   setStatusText: (t) => set({ statusText: t }),
 
   loadConversations: async () => {
     const { userId } = get()
-    const data = await api.getConversations(userId)
-    set({
-      conversations: data.conversations,
-      currentConvId: data.current_id,
-    })
+    const version = ++_conversationListVersion
+    try {
+      const data = await api.getConversations(userId)
+      if (get().userId !== userId || version !== _conversationListVersion) return
+      set({
+        conversations: data.conversations,
+        currentConvId: data.current_id,
+      })
+    } catch (error) {
+      if (get().userId === userId && version === _conversationListVersion) throw error
+    }
   },
 
   loadConversation: async (convId) => {
     const { userId } = get()
-    const data = await api.getConversation(userId, convId)
-    set({
-      currentConvId: convId,
-      messages: data.messages || [],
-    })
+    const version = ++_conversationLoadVersion
+    try {
+      const data = await api.getConversation(userId, convId)
+      if (get().userId !== userId || version !== _conversationLoadVersion) return
+      set({
+        currentConvId: convId,
+        messages: data.messages || [],
+      })
+    } catch (error) {
+      if (get().userId === userId && version === _conversationLoadVersion) throw error
+    }
   },
 
   createConversation: async () => {
     const { userId } = get()
     const data = await api.createConversation(userId)
+    if (get().userId !== userId) return data.id
     await get().loadConversations()
+    if (get().userId !== userId) return data.id
     await get().loadConversation(data.id)
     return data.id
   },
@@ -106,12 +145,14 @@ export const useStore = create<AppState>((set, get) => ({
   renameConversation: async (convId, title) => {
     const { userId } = get()
     await api.renameConversation(userId, convId, title)
+    if (get().userId !== userId) return
     await get().loadConversations()
   },
 
   deleteConversation: async (convId) => {
     const { userId, currentConvId } = get()
     const result = await api.deleteConversation(userId, convId)
+    if (get().userId !== userId) return
     if (currentConvId === convId) {
       await get().loadConversation(result.current_id)
     }
@@ -131,7 +172,9 @@ export const useStore = create<AppState>((set, get) => ({
     const { userId } = get()
     const exists = users.some((u) => u.id === userId)
     if (!exists && users.length > 0) {
-      set({ userId: users[0].id })
+      ++_userSwitchVersion
+      ++_characterLoadVersion
+      set({ userId: users[0].id, characterConfig: null })
     }
     set({ users })
   },
@@ -142,21 +185,35 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   switchUser: async (newUserId) => {
-    set({ userId: newUserId, messages: [], conversations: [], currentConvId: null })
+    if (get().isLoading) return
+    const version = ++_userSwitchVersion
+    ++_characterLoadVersion
+    set({
+      userId: newUserId,
+      messages: [],
+      conversations: [],
+      currentConvId: null,
+      characterConfig: null,
+    })
     await get().loadConversations()
+    if (get().userId !== newUserId || version !== _userSwitchVersion) return
     const { currentConvId } = get()
     if (currentConvId) {
       await get().loadConversation(currentConvId)
     }
+    if (get().userId !== newUserId || version !== _userSwitchVersion) return
     await get().loadMemoryStats()
   },
 
   loadMemoryStats: async () => {
     const { userId } = get()
+    const version = ++_memoryStatsVersion
     try {
       const stats = await api.getMemoryStats(userId)
+      if (get().userId !== userId || version !== _memoryStatsVersion) return
       set({ memoryStats: stats, error: null })
     } catch (e) {
+      if (get().userId !== userId || version !== _memoryStatsVersion) return
       set({ statusText: '记忆统计加载失败', error: '记忆统计加载失败' })
     }
   },
@@ -194,6 +251,41 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
+  loadCharacterConfig: async () => {
+    const userId = get().userId
+    const version = ++_characterLoadVersion
+    try {
+      // A reopened dialog must not reload the previous selection during a save.
+      if (_characterSaveRequest) await _characterSaveRequest.catch(() => undefined)
+      const config = await api.getCharacterConfig(userId)
+      if (get().userId === userId && version === _characterLoadVersion)
+        set({ characterConfig: config })
+    } catch (error) {
+      if (get().userId === userId && version === _characterLoadVersion) throw error
+    }
+  },
+
+  updateCharacterConfig: async (config) => {
+    if (get().isLoading) throw new Error('请等待当前回复完成后再切换角色。')
+    if (_characterSaveRequest) throw new Error('角色正在保存，请稍候。')
+    const userId = get().userId
+    const visit = _userSwitchVersion
+    ++_characterLoadVersion
+    const pending = api.updateCharacterConfig(userId, config)
+    _characterSaveRequest = pending
+    set({ isCharacterSaving: true })
+    try {
+      const result = await pending
+      if (get().userId === userId && visit === _userSwitchVersion) {
+        ++_characterLoadVersion
+        set({ characterConfig: result })
+      }
+    } finally {
+      _characterSaveRequest = null
+      set({ isCharacterSaving: false })
+    }
+  },
+
   checkAuth: async () => {
     try {
       const health = await api.getHealth()
@@ -225,6 +317,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   sendMessage: async function* (content, imageData) {
+    if (get().isLoading) return
     const { userId, currentConvId, messages } = get()
     set({ isLoading: true, statusText: '', error: null, lastFailedMessage: { content, imageData } })
 
@@ -244,19 +337,19 @@ export const useStore = create<AppState>((set, get) => ({
         } else if (event.type === 'token') {
           // 累积 token 内容
           assistantMsg = { ...assistantMsg, content: assistantMsg.content + (event.text || '') }
-          
+
           if (!assistantAdded) {
             // 第一次收到 token，添加 assistant 消息
             assistantAdded = true
-            set((s) => ({ 
-              messages: [...s.messages, assistantMsg], 
-              isLoading: false, 
-              statusText: '' 
+            set((s) => ({
+              messages: [...s.messages, assistantMsg],
+              isLoading: true,
+              statusText: '',
             }))
           } else {
             // 后续 token，更新已存在的 assistant 消息
             set((s) => {
-              const msgIndex = s.messages.findIndex(m => m.id === assistantMsgId)
+              const msgIndex = s.messages.findIndex((m) => m.id === assistantMsgId)
               if (msgIndex === -1) {
                 // 如果找不到，追加到末尾（异常情况）
                 return { messages: [...s.messages, assistantMsg] }
@@ -272,7 +365,7 @@ export const useStore = create<AppState>((set, get) => ({
             const finalContent = event.text || assistantMsg.content
             assistantMsg = { ...assistantMsg, content: finalContent }
             set((s) => {
-              const msgIndex = s.messages.findIndex(m => m.id === assistantMsgId)
+              const msgIndex = s.messages.findIndex((m) => m.id === assistantMsgId)
               if (msgIndex === -1) {
                 return { messages: [...s.messages, assistantMsg] }
               }
@@ -282,6 +375,7 @@ export const useStore = create<AppState>((set, get) => ({
             })
           }
         } else if (event.type === 'done') {
+          set({ isLoading: false, statusText: '', lastFailedMessage: null })
           if (event.conversation_id && !currentConvId) {
             set({ currentConvId: event.conversation_id })
           }
@@ -294,6 +388,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }
     } catch (e) {
+      set({ error: e instanceof Error ? e.message : '回复失败，请重试' })
       const errMsg: Message = {
         role: 'assistant',
         content: `抱歉，出现了一些问题：${e instanceof Error ? e.message : '未知错误'}`,
@@ -302,7 +397,7 @@ export const useStore = create<AppState>((set, get) => ({
         set((s) => ({ messages: [...s.messages, errMsg], isLoading: false, statusText: '' }))
       } else {
         set((s) => {
-          const msgIndex = s.messages.findIndex(m => m.id === assistantMsgId)
+          const msgIndex = s.messages.findIndex((m) => m.id === assistantMsgId)
           if (msgIndex === -1) {
             return { messages: [...s.messages, errMsg], isLoading: false, statusText: '' }
           }
@@ -311,6 +406,8 @@ export const useStore = create<AppState>((set, get) => ({
           return { messages: newMessages, isLoading: false, statusText: '' }
         })
       }
+    } finally {
+      set({ isLoading: false, statusText: '' })
     }
   },
 

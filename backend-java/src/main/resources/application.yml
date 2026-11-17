@@ -1,0 +1,27 @@
+server:
+  address: ${HOST:127.0.0.1}
+  port: ${PORT:8000}
+  shutdown: graceful
+  tomcat:
+    max-http-form-post-size: 20MB
+spring:
+  application:
+    name: giftia
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  jackson:
+    default-property-inclusion: always
+giftia:
+  chat-model: ${CHAT_MODEL:deepseek-v4-flash}
+  chat-base-url: ${CHAT_BASE_URL:https://api.deepseek.com/v1}
+  chat-multimodal: ${CHAT_MULTIMODAL:auto}
+  thinking-enabled: ${CHAT_THINKING_ENABLED:true}
+  embedding-model: ${EMBED_MODEL:BAAI/bge-m3}
+  embedding-base-url: ${EMBED_BASE_URL:https://api.siliconflow.cn/v1/embeddings}
+  access-key: ${GIFTIA_ACCESS_KEY:}
+  admin-key: ${GIFTIA_ADMIN_KEY:}
+logging:
+  level:
+    org.springframework.ai: WARN
+    org.springframework.web.client: WARN
+    org.springframework.web.reactive.function.client: WARN

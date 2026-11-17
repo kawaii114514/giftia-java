@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../store'
 import './ConversationList.css'
 
-export default function ConversationList() {
+export default function ConversationList({ onSelect }: { onSelect?: () => void }) {
   const conversations = useStore((s) => s.conversations)
   const currentConvId = useStore((s) => s.currentConvId)
   const searchQuery = useStore((s) => s.searchQuery)
@@ -16,7 +16,7 @@ export default function ConversationList() {
   const [editTitle, setEditTitle] = useState('')
 
   const filtered = searchQuery
-    ? conversations.filter((c) => c.title.toLowerCase().includes(searchQuery))
+    ? conversations.filter((c) => c.title.toLowerCase().includes(searchQuery.toLowerCase()))
     : conversations
 
   const handleStartRename = (id: string, currentTitle: string) => {
@@ -36,8 +36,23 @@ export default function ConversationList() {
     <div className="conv-list">
       <div className="conv-list-header">
         <span className="conv-list-label">对话</span>
-        <button className="conv-list-new-btn" onClick={createConversation}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <button
+          className="conv-list-new-btn"
+          aria-label="新建对话"
+          onClick={async () => {
+            await createConversation()
+            onSelect?.()
+          }}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
@@ -45,7 +60,16 @@ export default function ConversationList() {
       </div>
 
       <div className="conv-list-search">
-        <svg className="conv-list-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <svg
+          className="conv-list-search-icon"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
@@ -74,12 +98,22 @@ export default function ConversationList() {
                     type="text"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveRename(conv.id); if (e.key === 'Escape') setEditingId(null) }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveRename(conv.id)
+                      if (e.key === 'Escape') setEditingId(null)
+                    }}
                     className="conv-item-edit-input"
                     autoFocus
                   />
-                  <button className="conv-item-action" onClick={() => handleSaveRename(conv.id)}>✓</button>
-                  <button className="conv-item-action conv-item-action--danger" onClick={() => setEditingId(null)}>✕</button>
+                  <button className="conv-item-action" onClick={() => handleSaveRename(conv.id)}>
+                    ✓
+                  </button>
+                  <button
+                    className="conv-item-action conv-item-action--danger"
+                    onClick={() => setEditingId(null)}
+                  >
+                    ✕
+                  </button>
                 </div>
               )
             }
@@ -88,15 +122,26 @@ export default function ConversationList() {
               <div key={conv.id} className={`conv-item ${isActive ? 'conv-item--active' : ''}`}>
                 <button
                   className="conv-item-title"
-                  onClick={() => switchConversation(conv.id)}
+                  onClick={async () => {
+                    await switchConversation(conv.id)
+                    onSelect?.()
+                  }}
                 >
                   {isActive && <span className="conv-item-dot">●</span>}
                   {displayTitle}
                 </button>
-                <button className="conv-item-action" onClick={() => handleStartRename(conv.id, conv.title)} title="重命名">
+                <button
+                  className="conv-item-action"
+                  onClick={() => handleStartRename(conv.id, conv.title)}
+                  title="重命名"
+                >
                   ✎
                 </button>
-                <button className="conv-item-action conv-item-action--danger" onClick={() => deleteConversation(conv.id)} title="删除">
+                <button
+                  className="conv-item-action conv-item-action--danger"
+                  onClick={() => deleteConversation(conv.id)}
+                  title="删除"
+                >
                   ✕
                 </button>
               </div>

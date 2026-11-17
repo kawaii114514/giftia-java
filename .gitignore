@@ -29,6 +29,10 @@ frontend/package-lock.json
 frontend/tsconfig.app.tsbuildinfo
 frontend/tsconfig.node.tsbuildinfo
 
+# Java 构建输出与本地启动日志 / PID
+backend-java/target/
+.run/
+
 # 本地数据（含用户隐私，不入版本控制）
 backend/memory_store/*
 !backend/memory_store/.gitkeep
@@ -39,6 +43,7 @@ backend/mem0_local_db/*
 
 # 自定义人设配置（含用户个性化 Prompt）
 backend/prompt_config.json
+backend/character_config.json
 
 # SQLite 数据库
 *.db
@@ -53,5 +58,6 @@ backend/prompt_config.json
 Thumbs.db
 desktop.ini
 
-# 内部文档（TDD、审阅报告等，不入版本控制）
-docs/
+# 内部文档默认保留本地，公开 Java 迁移说明单独纳入版本控制
+docs/*
+!docs/backend-java-migration.md

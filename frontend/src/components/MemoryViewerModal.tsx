@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import { useStore } from '../store'
+import { useDialogFocus } from './useDialogFocus'
 import type { MemoryDetail, MemoryDetailResponse, UserProfileData } from '../types'
 import './MemoryViewerModal.css'
 
@@ -60,6 +62,8 @@ function getTemporalLabel(temporal: Record<string, any>): string | null {
 }
 
 export default function MemoryViewerModal({ onClose }: Props) {
+  const dialogRef = useDialogFocus(onClose)
+  const userId = useStore((s) => s.userId)
   const [activeTab, setActiveTab] = useState<TabKey>('profile')
   const [loading, setLoading] = useState(true)
   const [memoryData, setMemoryData] = useState<MemoryDetailResponse | null>(null)
@@ -69,7 +73,6 @@ export default function MemoryViewerModal({ onClose }: Props) {
   useEffect(() => {
     const load = async () => {
       try {
-        const userId = 'web_user_001' // current user
         const [memRes, profRes] = await Promise.all([
           api.getMemoryDetail(userId),
           api.getUserProfile(userId),
@@ -83,7 +86,7 @@ export default function MemoryViewerModal({ onClose }: Props) {
       }
     }
     load()
-  }, [])
+  }, [userId])
 
   const tabs: TabKey[] = ['profile', 'memories']
 
@@ -102,18 +105,29 @@ export default function MemoryViewerModal({ onClose }: Props) {
   const allMemories: (MemoryDetail & { layer: 'core' | 'important' | 'regular' })[] = []
   if (memoryData) {
     for (const m of memoryData.layers.core ?? []) allMemories.push({ ...m, layer: 'core' })
-    for (const m of memoryData.layers.important ?? []) allMemories.push({ ...m, layer: 'important' })
+    for (const m of memoryData.layers.important ?? [])
+      allMemories.push({ ...m, layer: 'important' })
     for (const m of memoryData.layers.regular ?? []) allMemories.push({ ...m, layer: 'regular' })
     allMemories.sort((a, b) => b.created_at - a.created_at)
   }
 
   return (
     <div className="mem-viewer-overlay" onClick={onClose}>
-      <div className="mem-viewer-content" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="mem-viewer-content"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="记忆查看器"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="mem-viewer-header">
           <span className="mem-viewer-title">记忆查看器</span>
-          <button className="mem-viewer-close" onClick={onClose}>&times;</button>
+          <button className="mem-viewer-close" aria-label="关闭记忆查看器" onClick={onClose}>
+            &times;
+          </button>
         </div>
 
         {/* Working Memory Summary */}
@@ -124,7 +138,9 @@ export default function MemoryViewerModal({ onClose }: Props) {
             {memoryData.working_memory.open_topics.length > 0 && (
               <div className="mem-working-topics">
                 {memoryData.working_memory.open_topics.map((t, i) => (
-                  <span key={i} className="mem-topic-tag">{t}</span>
+                  <span key={i} className="mem-topic-tag">
+                    {t}
+                  </span>
                 ))}
               </div>
             )}
@@ -156,9 +172,7 @@ export default function MemoryViewerModal({ onClose }: Props) {
           {!loading && !error && activeTab === 'profile' && profile && (
             <ProfileView profile={profile} coreMemories={memoryData?.layers.core ?? []} />
           )}
-          {!loading && !error && activeTab === 'memories' && (
-            <MemoryList memories={allMemories} />
-          )}
+          {!loading && !error && activeTab === 'memories' && <MemoryList memories={allMemories} />}
         </div>
       </div>
     </div>
@@ -166,15 +180,26 @@ export default function MemoryViewerModal({ onClose }: Props) {
 }
 
 /* ── Profile Tab ── */
-function ProfileView({ profile, coreMemories }: { profile: UserProfileData; coreMemories: MemoryDetail[] }) {
+function ProfileView({
+  profile,
+  coreMemories,
+}: {
+  profile: UserProfileData
+  coreMemories: MemoryDetail[]
+}) {
   const { identity, preferences, relationships, emotional_profile } = profile
 
   const hasData = (obj: Record<string, any>) =>
-    Object.values(obj).some((v) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0))
+    Object.values(obj).some(
+      (v) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)
+    )
 
   const isEmpty =
-    !hasData(identity) && !hasData(preferences) && !hasData(relationships) && !hasData(emotional_profile)
-    && coreMemories.length === 0
+    !hasData(identity) &&
+    !hasData(preferences) &&
+    !hasData(relationships) &&
+    !hasData(emotional_profile) &&
+    coreMemories.length === 0
 
   if (isEmpty) {
     return <div className="mem-empty">暂无档案信息，多聊聊就会自动建立</div>
@@ -184,10 +209,17 @@ function ProfileView({ profile, coreMemories }: { profile: UserProfileData; core
     <div className="mem-profile">
       {hasData(identity) && (
         <Section title="基本信息">
-          <KVGrid data={identity} labelMap={{
-            name: '姓名', age: '年龄', gender: '性别',
-            occupation: '职业', location: '地点', education: '学历',
-          }} />
+          <KVGrid
+            data={identity}
+            labelMap={{
+              name: '姓名',
+              age: '年龄',
+              gender: '性别',
+              occupation: '职业',
+              location: '地点',
+              education: '学历',
+            }}
+          />
         </Section>
       )}
 
@@ -201,7 +233,9 @@ function ProfileView({ profile, coreMemories }: { profile: UserProfileData; core
                 <span className="mem-pref-key">{prefLabel(key)}</span>
                 <div className="mem-pref-tags">
                   {items.map((item: string, i: number) => (
-                    <span key={i} className="mem-pref-tag">{item}</span>
+                    <span key={i} className="mem-pref-tag">
+                      {item}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -264,7 +298,9 @@ function ProfileView({ profile, coreMemories }: { profile: UserProfileData; core
               <span className="mem-emo-key">触发因素</span>
               <div className="mem-pref-tags">
                 {emotional_profile.common_triggers.map((t: string, i: number) => (
-                  <span key={i} className="mem-pref-tag mem-pref-tag--warn">{t}</span>
+                  <span key={i} className="mem-pref-tag mem-pref-tag--warn">
+                    {t}
+                  </span>
                 ))}
               </div>
             </div>
@@ -274,7 +310,9 @@ function ProfileView({ profile, coreMemories }: { profile: UserProfileData; core
               <span className="mem-emo-key">应对策略</span>
               <div className="mem-pref-tags">
                 {emotional_profile.coping_strategies.map((t: string, i: number) => (
-                  <span key={i} className="mem-pref-tag">{t}</span>
+                  <span key={i} className="mem-pref-tag">
+                    {t}
+                  </span>
                 ))}
               </div>
             </div>
@@ -307,12 +345,16 @@ function ProfileView({ profile, coreMemories }: { profile: UserProfileData; core
 /* ── Memory List Tab ── */
 
 const LAYER_BADGES: Record<string, { label: string; cls: string }> = {
-  core:      { label: '核心', cls: 'mem-layer--core' },
+  core: { label: '核心', cls: 'mem-layer--core' },
   important: { label: '重要', cls: 'mem-layer--important' },
-  regular:   { label: '常规', cls: 'mem-layer--regular' },
+  regular: { label: '常规', cls: 'mem-layer--regular' },
 }
 
-function MemoryList({ memories }: { memories: (MemoryDetail & { layer: 'core' | 'important' | 'regular' })[] }) {
+function MemoryList({
+  memories,
+}: {
+  memories: (MemoryDetail & { layer: 'core' | 'important' | 'regular' })[]
+}) {
   if (memories.length === 0) {
     return <div className="mem-empty">暂无记忆</div>
   }
@@ -327,12 +369,8 @@ function MemoryList({ memories }: { memories: (MemoryDetail & { layer: 'core' | 
             <div className="mem-card-header">
               <span className={`mem-layer-badge ${badge.cls}`}>{badge.label}</span>
               <span className="mem-card-emoji">{m.emotion_emoji}</span>
-              <span className="mem-card-emotion">
-                {EMOTION_LABELS[m.emotion] || m.emotion}
-              </span>
-              <span className="mem-card-category">
-                {CATEGORY_LABELS[m.category] || m.category}
-              </span>
+              <span className="mem-card-emotion">{EMOTION_LABELS[m.emotion] || m.emotion}</span>
+              <span className="mem-card-category">{CATEGORY_LABELS[m.category] || m.category}</span>
               <span className="mem-card-time">{formatTime(m.created_at)}</span>
             </div>
 
@@ -342,7 +380,9 @@ function MemoryList({ memories }: { memories: (MemoryDetail & { layer: 'core' | 
               <div className="mem-card-tags">
                 {temporalLabel && <span className="mem-tag mem-tag--time">{temporalLabel}</span>}
                 {m.tags.map((t, i) => (
-                  <span key={i} className="mem-tag">{t}</span>
+                  <span key={i} className="mem-tag">
+                    {t}
+                  </span>
                 ))}
               </div>
             )}
@@ -369,7 +409,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function KVGrid({ data, labelMap }: { data: Record<string, any>; labelMap: Record<string, string> }) {
+function KVGrid({
+  data,
+  labelMap,
+}: {
+  data: Record<string, any>
+  labelMap: Record<string, string>
+}) {
   return (
     <div className="mem-kv-grid">
       {Object.entries(data).map(([key, val]) => {
@@ -388,8 +434,13 @@ function KVGrid({ data, labelMap }: { data: Record<string, any>; labelMap: Recor
 /* ── Helpers ── */
 function prefLabel(key: string): string {
   const map: Record<string, string> = {
-    hobbies: '爱好', music: '音乐', movies: '电影',
-    books: '书籍', food: '美食', travel: '旅行', other: '其他',
+    hobbies: '爱好',
+    music: '音乐',
+    movies: '电影',
+    books: '书籍',
+    food: '美食',
+    travel: '旅行',
+    other: '其他',
   }
   return map[key] || key
 }

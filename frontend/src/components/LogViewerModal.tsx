@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import { useDialogFocus } from './useDialogFocus'
 import type { LogEntry } from '../types'
 import './LogViewerModal.css'
 
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function LogViewerModal({ onClose }: Props) {
+  const dialogRef = useDialogFocus(onClose)
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [paused, setPaused] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -18,7 +20,9 @@ export default function LogViewerModal({ onClose }: Props) {
     try {
       const data = await api.getLogs(300)
       setLogs(data.logs)
-    } catch { /* backend may not have restarted yet */ }
+    } catch {
+      /* backend may not have restarted yet */
+    }
   }
 
   useEffect(() => {
@@ -45,18 +49,33 @@ export default function LogViewerModal({ onClose }: Props) {
 
   return (
     <div className="log-viewer-overlay" onClick={onClose}>
-      <div className="log-viewer-content" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="log-viewer-content"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="系统日志"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="log-viewer-header">
           <span className="log-viewer-title">系统日志</span>
           <div className="log-viewer-actions">
             <span className="log-viewer-badge">{logs.length}</span>
             <button
               className="log-viewer-btn"
-              onClick={() => { setPaused(!paused); if (paused) fetchLogs() }}
+              onClick={() => {
+                setPaused(!paused)
+                if (paused) fetchLogs()
+              }}
             >
               {paused ? '▶ 恢复' : '⏸ 暂停'}
             </button>
-            <button className="log-viewer-btn log-viewer-btn--close" onClick={onClose}>
+            <button
+              className="log-viewer-btn log-viewer-btn--close"
+              aria-label="关闭日志"
+              onClick={onClose}
+            >
               ✕
             </button>
           </div>

@@ -53,6 +53,31 @@ export interface PromptConfig {
   is_custom: boolean
 }
 
+export interface CharacterFields {
+  name: string
+  description: string
+  personality: string
+  scenario: string
+  first_mes: string
+  mes_example: string
+  tags: string[]
+}
+
+export interface CharacterCard extends CharacterFields {
+  id: string
+}
+
+export interface CharacterConfig {
+  user_id: string
+  active_character: CharacterCard
+  custom_character: CharacterCard | null
+  presets: CharacterCard[]
+  system_rules: string
+  scope: 'user'
+}
+
+export type CharacterUpdate = { character_id: string } | { character: CharacterFields }
+
 export interface MemoryDetail {
   id: string
   content: string

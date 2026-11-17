@@ -3,7 +3,6 @@ import './StatsCard.css'
 
 export default function StatsCard() {
   const memoryStats = useStore((s) => s.memoryStats)
-  const userId = useStore((s) => s.userId)
 
   if (!memoryStats) return null
 
@@ -11,17 +10,8 @@ export default function StatsCard() {
 
   return (
     <div className="stats-card">
-      <div className="stats-card-user">
-        <div className="stats-card-avatar">{userId.charAt(0).toUpperCase() || 'U'}</div>
-        <div>
-          <div className="stats-card-user-name">{userId.slice(0, 14)}</div>
-          <div className="stats-card-user-label">当前用户</div>
-        </div>
-      </div>
-
       {total > 0 ? (
         <>
-          <div className="stats-card-divider" />
           <div className="stats-card-grid">
             <div className="stats-card-item">
               <div className="stats-card-value">{total}</div>

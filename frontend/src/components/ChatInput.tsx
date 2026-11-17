@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useStore } from '../store'
 import './ChatInput.css'
 
-export default function ChatInput() {
+export default function ChatInput({ draft }: { draft?: { text: string; id: number } }) {
   const [text, setText] = useState('')
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageData, setImageData] = useState<string | null>(null)
@@ -12,6 +12,21 @@ export default function ChatInput() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    if (draft) {
+      setText(draft.text)
+      textareaRef.current?.focus()
+    }
+  }, [draft])
+
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`
+    }
+  }, [text])
+
   const handleSubmit = useCallback(async () => {
     const trimmed = text.trim()
     if (!trimmed || isLoading) return
@@ -20,13 +35,13 @@ export default function ChatInput() {
     setImageData(null)
     const gen = sendMessage(trimmed, imageData || undefined)
     for await (const _ of gen) {
-      // consume
+      void _
     }
   }, [text, isLoading, imageData, sendMessage])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault()
         handleSubmit()
       }
@@ -52,7 +67,13 @@ export default function ChatInput() {
       {imagePreview && (
         <div className="chat-input-preview">
           <img src={imagePreview} alt="preview" />
-          <button className="chat-input-preview-remove" onClick={() => { setImagePreview(null); setImageData(null) }}>
+          <button
+            className="chat-input-preview-remove"
+            onClick={() => {
+              setImagePreview(null)
+              setImageData(null)
+            }}
+          >
             ✕
           </button>
         </div>
@@ -65,6 +86,7 @@ export default function ChatInput() {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="和我说说你的心事吧..."
+          aria-label="消息"
           rows={1}
           disabled={isLoading}
         />
@@ -76,7 +98,16 @@ export default function ChatInput() {
                 onClick={() => fileRef.current?.click()}
                 title="上传图片"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                 </svg>
               </button>
@@ -100,6 +131,10 @@ export default function ChatInput() {
             </svg>
           </button>
         </div>
+      </div>
+      <div className="composer-footnote">
+        <span>Giftia 会记住你分享的点滴</span>
+        <span>Enter 发送 · Shift + Enter 换行</span>
       </div>
     </div>
   )

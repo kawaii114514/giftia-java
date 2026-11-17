@@ -1,4 +1,4 @@
-import type { Conversation, UserInfo, MemoryStats, ModelConfig, Message, LogEntry, PromptConfig, MemoryDetailResponse, UserProfileResponse } from './types'
+import type { Conversation, UserInfo, MemoryStats, ModelConfig, Message, LogEntry, PromptConfig, MemoryDetailResponse, UserProfileResponse, CharacterConfig, CharacterUpdate } from './types'
 
 const BASE = '/api'
 
@@ -106,6 +106,17 @@ export const api = {
     return request('/config/prompt', {
       method: 'PUT',
       body: JSON.stringify({ prompt }),
+    })
+  },
+
+  getCharacterConfig(userId: string): Promise<CharacterConfig> {
+    return request(`/characters/${encodeURIComponent(userId)}`)
+  },
+
+  updateCharacterConfig(userId: string, update: CharacterUpdate): Promise<CharacterConfig> {
+    return request(`/characters/${encodeURIComponent(userId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(update),
     })
   },
 

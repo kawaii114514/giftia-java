@@ -5,14 +5,42 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_legacy_python:
+        description: Also validate the retained Python reference backend
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  backend:
-    name: Backend Lint & Test
+  backend-java:
+    name: Java Backend Test & Package
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-java
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: backend-java/pom.xml
+
+      - name: Test and package with Maven wrapper
+        run: sh ./mvnw --batch-mode --no-transfer-progress verify
+
+  legacy-python:
+    name: Optional Python Reference Checks
+    if: github.event_name == 'workflow_dispatch' && inputs.run_legacy_python
     runs-on: ubuntu-latest
     defaults:
       run:

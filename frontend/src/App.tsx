@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useStore } from './store'
 import { getStoredAccessKey, getStoredAdminKey } from './api'
-import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
+import GardenHome from './components/GardenHome'
+import MemoryGarden from './components/MemoryGarden'
+import CompanionSettings from './components/CompanionSettings'
+import { useGardenMemories } from './components/gardenData'
 import ErrorBoundary from './components/ErrorBoundary'
 import './App.css'
 
@@ -38,7 +41,10 @@ function AuthGate() {
               type="password"
               className="auth-input"
               value={accessKey}
-              onChange={(e) => { setAccessKey(e.target.value); setError('') }}
+              onChange={(e) => {
+                setAccessKey(e.target.value)
+                setError('')
+              }}
               placeholder="输入访问密钥"
               autoFocus
             />
@@ -64,6 +70,10 @@ function AuthGate() {
 }
 
 export default function App() {
+  const [page, setPage] = useState<'home' | 'chat' | 'memory'>('home')
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [draft, setDraft] = useState<{ text: string; id: number; userId: string }>()
+  const [historyRequest, setHistoryRequest] = useState(0)
   const loadConversations = useStore((s) => s.loadConversations)
   const loadUsers = useStore((s) => s.loadUsers)
   const loadMemoryStats = useStore((s) => s.loadMemoryStats)
@@ -73,6 +83,26 @@ export default function App() {
   const checkAuth = useStore((s) => s.checkAuth)
   const authRequired = useStore((s) => s.authRequired)
   const isAuthenticated = useStore((s) => s.isAuthenticated)
+  const userId = useStore((s) => s.userId)
+  const memoryStats = useStore((s) => s.memoryStats)
+  const isLoading = useStore((s) => s.isLoading)
+  const switchConversation = useStore((s) => s.switchConversation)
+  const garden = useGardenMemories(isAuthenticated ? userId : '', memoryStats?.total || 0)
+  const loadCharacterConfig = useStore((s) => s.loadCharacterConfig)
+  const openChat = (text?: string) => {
+    if (text) setDraft({ text, id: Date.now(), userId })
+    setPage('chat')
+  }
+  useEffect(() => {
+    setDraft(undefined)
+  }, [userId])
+
+  useEffect(() => {
+    if (isAuthenticated)
+      loadCharacterConfig().catch(() => {
+        /* Settings provides a retry. */
+      })
+  }, [userId, isAuthenticated, loadCharacterConfig])
 
   useEffect(() => {
     checkAuth()
@@ -80,15 +110,21 @@ export default function App() {
 
   useEffect(() => {
     if (!isAuthenticated) return
-    loadConversations()
-    loadUsers()
-    loadMemoryStats()
-    loadModelConfig()
+    void (async () => {
+      try {
+        await loadUsers()
+        await Promise.all([loadConversations(), loadMemoryStats(), loadModelConfig()])
+      } catch {
+        useStore.setState({ error: '暂时无法连接服务，请稍后重试。' })
+      }
+    })()
   }, [isAuthenticated, loadConversations, loadUsers, loadMemoryStats, loadModelConfig])
 
   useEffect(() => {
     if (currentConvId && isAuthenticated) {
-      loadConversation(currentConvId)
+      loadConversation(currentConvId).catch(() =>
+        useStore.setState({ error: '对话加载失败，请稍后重试。' })
+      )
     }
     // 移除 loadConversation 依赖，避免无限循环
   }, [currentConvId, isAuthenticated])
@@ -99,9 +135,82 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="app-layout">
-        <Sidebar />
-        <ChatArea />
+      <div className={`app-layout page-${page}`}>
+        <header className="app-nav">
+          <button className="brand" onClick={() => setPage('home')} aria-label="Giftia 首页">
+            <span className="brand-leaf">❧</span>
+            <span>
+              Giftia<small>给心事一个生长的地方</small>
+            </span>
+          </button>
+          <nav aria-label="主导航">
+            <button
+              aria-current={page === 'home' ? 'page' : undefined}
+              onClick={() => setPage('home')}
+            >
+              今日<span>Today</span>
+            </button>
+            <button
+              aria-current={page === 'chat' ? 'page' : undefined}
+              onClick={() => setPage('chat')}
+            >
+              对话<span>Talk</span>
+            </button>
+            <button
+              aria-current={page === 'memory' ? 'page' : undefined}
+              onClick={() => setPage('memory')}
+            >
+              记忆花园<span>Garden</span>
+            </button>
+          </nav>
+          <button
+            className="account-button"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="个人与设置"
+          >
+            <span>{userId.slice(0, 1).toUpperCase()}</span>
+            <i>我的空间</i>
+            <b>⌄</b>
+          </button>
+        </header>
+        <div className="page-content" hidden={page !== 'home'}>
+          {page === 'home' && (
+            <GardenHome
+              memories={garden.memories}
+              memoryLoading={garden.loading}
+              memoryError={garden.error}
+              onChat={openChat}
+              onHistory={() => {
+                setPage('chat')
+                setHistoryRequest((n) => n + 1)
+              }}
+              onMemories={() => {
+                garden.reload()
+                setPage('memory')
+              }}
+              onConversation={async (id) => {
+                if (isLoading) return
+                try {
+                  await switchConversation(id)
+                  setPage('chat')
+                } catch {
+                  useStore.setState({ error: '对话加载失败，请稍后重试。' })
+                }
+              }}
+            />
+          )}
+        </div>
+        <div className="chat-page-container" hidden={page !== 'chat'}>
+          <ChatArea
+            key={userId}
+            draft={draft?.userId === userId ? draft : undefined}
+            historyRequest={historyRequest}
+          />
+        </div>
+        <div className="page-content" hidden={page !== 'memory'}>
+          {page === 'memory' && <MemoryGarden key={userId} {...garden} onChat={openChat} />}
+        </div>
+        {settingsOpen && <CompanionSettings onClose={() => setSettingsOpen(false)} />}
       </div>
     </ErrorBoundary>
   )

@@ -235,7 +235,7 @@ class EbbinghausCurve:
 
 class EmbeddingService:
     """
-    语义向量服务：调用智谱 Embedding API 生成文本向量。
+    语义向量服务：调用配置的 Embedding API 生成文本向量。
     
     用于记忆的语义检索，替代纯关键词匹配。
     API 不可用时自动降级到关键词匹配。
@@ -253,8 +253,8 @@ class EmbeddingService:
         if self._client is not None:
             return
         try:
-            from model_config import EMBED_MODEL, EMBED_BASE_URL, EMBED_PROVIDER, resolve_api_key
-            api_key = resolve_api_key(EMBED_PROVIDER)
+            from model_config import EMBED_MODEL, EMBED_BASE_URL, get_embedding_api_key
+            api_key = get_embedding_api_key()
             from openai import OpenAI
             self._client = OpenAI(api_key=api_key, base_url=EMBED_BASE_URL.rsplit("/", 1)[0])
             self._model = EMBED_MODEL

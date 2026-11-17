@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import ConversationList from './ConversationList'
 import UserSection from './UserSection'
@@ -10,7 +10,13 @@ import MemoryViewerModal from './MemoryViewerModal'
 import PromptDialog from './PromptDialog'
 import './Sidebar.css'
 
-export default function Sidebar() {
+export default function Sidebar({
+  mobileOpen = false,
+  onClose,
+}: {
+  mobileOpen?: boolean
+  onClose?: () => void
+}) {
   const modelConfig = useStore((s) => s.modelConfig)
   const createConversation = useStore((s) => s.createConversation)
   const clearMemories = useStore((s) => s.clearMemories)
@@ -19,9 +25,14 @@ export default function Sidebar() {
   const [showLogs, setShowLogs] = useState(false)
   const [showPrompt, setShowPrompt] = useState(false)
   const [showMemory, setShowMemory] = useState(false)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (mobileOpen) closeButtonRef.current?.focus()
+  }, [mobileOpen])
 
   const handleNewChat = async () => {
     await createConversation()
+    onClose?.()
   }
 
   const handleClearMemories = async () => {
@@ -30,7 +41,14 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar">
+    <aside
+      className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}
+      aria-label="对话与设置"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !(event.target as HTMLElement).closest('[role="dialog"]'))
+          onClose?.()
+      }}
+    >
       <div className="sidebar-brand">
         <div className="sidebar-brand-icon">
           <img src="/logo.jpg" alt="Giftia" className="sidebar-brand-logo" />
@@ -39,62 +57,131 @@ export default function Sidebar() {
           <div className="sidebar-brand-name">Giftia</div>
           <div className="sidebar-brand-sub">AI 情感陪伴</div>
         </div>
-        {modelConfig && (
-          <button className="sidebar-brand-model" onClick={() => setShowModel(true)} title="当前模型">
-            <span className="sidebar-brand-model-dot" />
-            <span className="sidebar-brand-model-label">{modelConfig.model}</span>
-          </button>
-        )}
+        <button
+          className="sidebar-mobile-close"
+          ref={closeButtonRef}
+          onClick={onClose}
+          aria-label="关闭导航"
+        >
+          ×
+        </button>
+      </div>
+      <div className="sidebar-station">
+        <span>留一个位置，给此刻的你。</span>
       </div>
 
       <button className="sidebar-new-chat" onClick={handleNewChat}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        >
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
         开启新对话
       </button>
 
-      <ConversationList />
+      <ConversationList onSelect={onClose} />
 
       <div className="sidebar-divider" />
 
-      <UserSection />
-
       <div className="sidebar-actions">
         <button className="sidebar-action-btn" onClick={() => setShowMemory(true)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.3 6L12 22l-3.7-7C6.3 13.7 5 11.5 5 9a7 7 0 0 1 7-7z" />
             <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none" />
           </svg>
           查看记忆
         </button>
         <button className="sidebar-action-btn" onClick={() => setShowPrompt(true)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
           </svg>
           自定义人设
         </button>
-        <button className="sidebar-action-btn" onClick={() => setShowLogs(true)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-          </svg>
-          查看日志
-        </button>
-        <button className="sidebar-action-btn sidebar-action-btn--danger" onClick={() => setShowClearConfirm(true)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
-          清除记忆
-        </button>
       </div>
 
-      <StatsCard />
+      <div className="sidebar-account">
+        <UserSection />
+        <details className="sidebar-settings">
+          <summary>
+            服务与设置<span aria-hidden="true">＋</span>
+          </summary>
+          {modelConfig && (
+            <button
+              className="sidebar-brand-model"
+              onClick={() => setShowModel(true)}
+              title="当前模型"
+            >
+              <span className="sidebar-brand-model-dot" />
+              <span className="sidebar-brand-model-label">{modelConfig.model}</span>
+              <span aria-hidden="true">↗</span>
+            </button>
+          )}
+          <StatsCard />
+          <button className="sidebar-action-btn" onClick={() => setShowLogs(true)}>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+            查看日志
+          </button>
+          <button
+            className="sidebar-action-btn sidebar-action-btn--danger"
+            onClick={() => setShowClearConfirm(true)}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+            清除记忆
+          </button>
+        </details>
+      </div>
 
       {showModel && <ModelDialog onClose={() => setShowModel(false)} />}
       {showLogs && <LogViewerModal onClose={() => setShowLogs(false)} />}
